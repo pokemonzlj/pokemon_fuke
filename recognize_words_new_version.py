@@ -148,9 +148,14 @@ class fuke(contrast_pic):
             # pic_new = Image.open(cut_pic_path)
             pic_new = pic.convert('RGBA')
             pix = pic_new.load()
-            if 234 <= pix[1150, 912][0] <= 240 and 175 <= pix[1150, 912][1] <= 180 and 78 <= pix[1150, 912][2] <= 84:
-                print('存在奖励确认窗口')
-                return 'reward'
+            for y in range(910, 920):
+                if 230 <= pix[1150, y][0] <= 250 and 170 <= pix[1150, y][1] <= 180 and 60 <= pix[1150, y][2] <= 84:
+                    print('存在奖励确认窗口')
+                    return 'reward'
+            for y in range(885, 910):
+                if 40 <= pix[1150, y][0] <= 60 and 170 <= pix[1150, y][1] <= 190 and 220 <= pix[1150, y][2] <= 240:
+                    print('存在缎带确认窗口')
+                    return 'duandai'  #精灵获得缎带的确认页面
             pic.crop((int(1065 * self.bili + self.extra_distance), 872, int(1336 * self.bili + self.extra_distance),
                       948)).save(cut_pic_path)  # 适用于找到 在线匹配 4个字框的下面的左半边部分
             pic_new = Image.open(cut_pic_path)
@@ -239,7 +244,7 @@ class fuke(contrast_pic):
                 if self.read_word('taopao') == 'OK' and self.read_word('down') != 'valuebox':  # 逃跑跟钻石箱子蓝色相同。增加一层判断
                     self.click(int(910 * self.bili + self.extra_distance), 600)
                     # os.system("adb -s %s shell input tap 766 711"  %id)  #点击 我知道啦
-                    print("The opposite guy has run away!")
+                    print("对方已逃跑!")
                     self.delay(2)
                     self.get_screenshot('pic')
                 if self.read_word('level') == 'OK':
@@ -313,6 +318,10 @@ class fuke(contrast_pic):
                     elif result == 'reward':
                         os.system("adb -s %s shell input tap %s 906" % (id, x))
                         print('点击确认奖励')
+                        break
+                    elif result == 'duandai':
+                        os.system("adb -s %s shell input tap %s 880" % (id, x))
+                        print('点击确认缎带奖励')
                         break
                 elif self.read_word('down') == 'valuebox':
                     os.system("adb -s %s shell input tap %s 572" % (id, x))  # 宝箱位置
