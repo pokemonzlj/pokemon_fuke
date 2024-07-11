@@ -1,0 +1,440 @@
+# -*-coding:utf-8-*-
+import os
+import sys
+from PIL import Image
+import pytesseract
+import time
+import threading
+import _thread
+from datetime import datetime
+from PIL import ImageGrab
+from pic_contrast_script import contrast_pic
+import math
+import subprocess
+import re
+
+
+class myThread(threading.Thread):  # 继承父类threading.Thread
+    def __init__(self, threadID, name, counter):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+        self.counter = counter
+
+    def run(self):  # 把要执行的代码写到run函数里面 线程在创建后会直接运行run函数
+        print("Starting " + self.name)
+        print_time(self.name, self.counter, 5)
+        print("Exiting " + self.name)
+
+
+class fuke(contrast_pic):
+    def __init__(self, device):
+        '''当前手机分辨率都是1080*2400'''
+        contrast_pic.__init__(self, device)
+        self.device_id = device
+        self.bili = 1
+        self.extra_distance = 0
+        self.zhanli_repeat = 0
+
+    def get_pic(self, id='1163746998'):
+        # path = os.path.dirname(__file__)+'/pic'
+        # subprocess.Popen('adb  -s %s shell screencap -p /sdcard/DCIM/screenshot.png' %id).wait()   #-p: save the file as a png
+        # os.system('adb  -s %s pull /sdcard/DCIM/screenshot.png %s ' %(id,path) )
+        # os.system('adb  -s %s shell rm /sdcard/DCIM/screenshot.png' %id).wait()
+        path = os.path.dirname(__file__) + '/pic'
+        timepic = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+        subprocess.Popen(
+            'adb  -s %s shell screencap -p /sdcard/DCIM/screenshot.png' % (self.device_id)).wait()  # 掉出宝箱之后截图以便查看
+        subprocess.Popen('adb  -s %s pull /sdcard/DCIM/screenshot.png %s/%s.png ' % (self.device_id, path, timepic),
+                         stdout=subprocess.PIPE).wait()
+        print("Get reward screenshot")
+        subprocess.Popen('adb  -s %s shell rm /sdcard/DCIM/screenshot.png' % id).wait()
+
+    def cut_pic(self, left_up=(0, 63), right_down=(1080, 1620), target='', name='', resolution=(1080, 2400)):
+        '''裁剪截图，获取需要的小图片方便识别'''
+        if target == '' or target == False:
+            path = os.path.dirname(__file__) + '/pic'
+            pic1_path = path + '/screenshot.png'
+            pic = Image.open(pic1_path)
+            if name == '':
+                cut_pic_path = path + '/cut.png'
+            else:
+                cut_pic_path = path + '/' + name + '.png'
+            pic.crop((left_up[0], left_up[1], right_down[0], right_down[1])).save(cut_pic_path)
+            return True
+        path_target = os.path.dirname(__file__) + '/pic/' +target
+        pic1_path = path_target + '/screenshot.png'
+        pic = Image.open(pic1_path)
+        if name == '':
+            cut_pic_path = path_target + '/cut.png'
+        else:
+            cut_pic_path = path_target + '/' + name + '.png'
+        pic.crop((left_up[0], left_up[1], right_down[0], right_down[1])).save(cut_pic_path)
+
+    def analyse_pic_word(self, picname='', type=1, change_color=True):
+        """识别图像中的文字，type为1识别文字，为2识别时间倒计时"""
+        path = os.path.dirname(__file__) + '/pic'
+        if picname == '':
+            pic = path + '/cut.png'
+        else:
+            pic = path + '/' + picname + '.png'
+        img = Image.open(pic)
+        # img = img.resize((img.width * 3, img.height * 3))  # 调整大小
+        img = img.convert('L')  # 转换为灰度图
+        if change_color:
+            img = img.point(lambda x: 0 if x < 128 else 255)  # 二值化
+        else:
+            img = img.point(lambda x: 0 if x < 251 else 255)  # 二值化
+        # img.show() #展示一下处理后的图片
+        if os.path.exists('E:/Tesseract-OCR/tesseract.exe'):
+            pytesseract.pytesseract.tesseract_cmd = 'E:/Tesseract-OCR/tesseract.exe'
+        else:
+            pytesseract.pytesseract.tesseract_cmd = 'D:/Tesseract-OCR/tesseract.exe'
+        if type != 2:
+            text = pytesseract.image_to_string(img, lang='chi_sim')
+        # text = pytesseract.image_to_string(img, lang='eng+chi_sim')
+        else:
+            # img = img.resize((img.width * 2, img.height * 2))  # 调整大小
+            # new_size = (img.width * 2, img.height * 2)
+            # img = img.resize(new_size, Image.LANCZOS)
+            # 降噪处理
+            img = img.filter(ImageFilter.MedianFilter(size=3))  # MedianFilter 将每个像素的值替换为其周围像素值的中值，以减少图像中的噪声。
+            # 在这里，size=3 表示滤波器的尺寸为 3x3，即在每个像素周围取一个 3x3 的区域进行中值计算。
+            # img.show()
+            text = pytesseract.image_to_string(img, lang='eng')
+        if type == 2:
+            # print(text)
+            # text = ''.join([char for char in text if char.isnumeric() or char == ':'])  #针对时间去噪
+            text = ''.join([char for char in text if char.isnumeric()])  # 针对时间去噪
+        reformatted_text = text.replace(' ', '').replace('\n', '')
+        # print(reformatted_text)
+        return reformatted_text
+
+    def check_package(self, id='1163746998'):
+        r = os.popen("adb -s %s shell dumpsys window | findstr mCurrentFocus" % id,
+                     "r")  # 想获取控制台输出的内容，那就用os.popen的方法了，popen返回的是一个file对象，跟open打开文件一样操作了，r是以读的方式打开
+        # dumpsys activity top|grep ACTIVITY
+        string = r.read()  # 返回file对象后再去read
+        if "com.pocketmon.baidu" in string:
+            print("It's baidu game, the resolution is 1768*1080")
+            self.bili = self.ratio
+            return True
+        elif "com.pock.maichi" in string:
+            print("It's maichi game, the resolution is 2400*1080")
+            self.bili = self.ratio
+            return True
+        else:
+            print("It's not baidu game, the resolution is 1920*1080")
+            self.bili = 1
+            return False
+
+    def read_word(self, weizhi='up'):
+        path = os.path.dirname(__file__) + '/pic'
+        pic1_path = path + '/screenshot.png'
+        pic = Image.open(pic1_path)
+        cut_pic_path = path + '/cut.png'
+        if weizhi == 'up':
+            self.cut_pic((1068, 437), (1370, 510), '', 'pipeizhong')
+            result = self.analyse_pic_word('pipeizhong', 1, False)
+            if "匹配" in result:
+                return 'battle'
+            return ''
+        elif weizhi == 'down':
+            self.cut_pic((1090, 870), (1320, 970), '', 'zaixianpipei')
+            result = self.analyse_pic_word('zaixianpipei', 1, False)
+            if "线匹" in result:
+                return 'battle'
+            pic = Image.open(pic1_path)
+            # pic_new = Image.open(cut_pic_path)
+            pic_new = pic.convert('RGBA')
+            pix = pic_new.load()
+            if 234 <= pix[1150, 912][0] <= 240 and 175 <= pix[1150, 912][1] <= 180 and 78 <= pix[1150, 912][2] <= 84:
+                print('存在奖励确认窗口')
+                return 'reward'
+            pic.crop((int(1065 * self.bili + self.extra_distance), 872, int(1336 * self.bili + self.extra_distance),
+                      948)).save(cut_pic_path)  # 适用于找到 在线匹配 4个字框的下面的左半边部分
+            pic_new = Image.open(cut_pic_path)
+            pic_new = pic_new.convert('RGBA')
+            pix = pic_new.load()
+            # pic_new=pic_new.convert('1')  #convert方法可以将图片转成黑白
+            for y in range(pic_new.size[1]):  # 二值化处理，这个阈值为R=95，G=95，B=95
+                for x in range(pic_new.size[0]):  # size[0]即图片长度，size[1]即图片高度
+                    # if 250 <= pix[x, y][0] <= 255 and 195 <= pix[x, y][1] <= 202 and pix[x, y][2] <= 18:  # 接近纯土黄色
+                    # if 235 <= pix[x, y][0] <= 255 and 95 <= pix[x, y][1] <= 115 and pix[x, y][2] <= 20:  # 接近纯土黄色
+                    #     return 'battle'
+                    if 22 <= pix[x, y][0] <= 30 and 16 <= pix[x, y][1] <= 24 and pix[x, y][2] <= 5:  # 有宝箱界面遮挡
+                        return 'valuebox'
+            return ''
+        elif weizhi == 'level':
+            pic.crop((int(890 * self.bili + self.extra_distance), 905, int(1020 * self.bili + self.extra_distance),
+                      980)).save(cut_pic_path)  # 适用于找到 确定 2个字
+            pic_new = Image.open(cut_pic_path)
+            pic_new = pic_new.convert('RGBA')
+            pix = pic_new.load()
+            for y in range(pic_new.size[1]):  # 二值化处理，这个阈值为R=95，G=95，B=95
+                for x in range(pic_new.size[0]):  # size[0]即图片长度，size[1]即图片高度
+                    if 14 <= pix[x, y][0] <= 56 and 160 <= pix[x, y][1] <= 174 and 238 <= pix[x, y][2] <= 248:
+                        return 'OK'
+            return ''
+        elif weizhi == 'taopao':
+            pic.crop((int(870 * self.bili + self.extra_distance), 570, int(1050 * self.bili + self.extra_distance),
+                      630)).save(cut_pic_path)  # 适用于找到 （对方已经逃跑）我知道啦 4个字
+            pic_new = Image.open(cut_pic_path)
+            pic_new = pic_new.convert('RGBA')
+            pix = pic_new.load()
+            for y in range(pic_new.size[1]):  # 二值化处理，这个阈值为R=95，G=95，B=95
+                for x in range(pic_new.size[0]):  # size[0]即图片长度，size[1]即图片高度
+                    if 14 <= pix[x, y][0] <= 56 and 160 <= pix[x, y][1] <= 174 and 238 <= pix[x, y][2] <= 248:
+                        return 'OK'
+            return ''
+        elif weizhi == 'hailuo':  # 保母曼波的海螺结算界面
+            pic.crop((int(870 * self.bili + self.extra_distance), 755, int(1045 * self.bili + self.extra_distance),
+                      770)).save(cut_pic_path)
+            pic_new = Image.open(cut_pic_path)
+            pic_new = pic_new.convert('RGBA')
+            pix = pic_new.load()
+            # pic_new=pic_new.convert('1')  #convert方法可以将图片转成黑白
+            for y in range(pic_new.size[1]):  # 二值化处理，这个阈值为R=95，G=95，B=95
+                for x in range(pic_new.size[0]):  # size[0]即图片长度，size[1]即图片高度
+                    if 56 <= pix[x, y][0] <= 62 and 239 <= pix[x, y][1] <= 250 and 250 <= pix[x, y][2] <= 255:
+                        return True
+            return False
+        elif weizhi == 'zhanbu':  # 每日首胜的占卜界面
+            pic_new = Image.open(pic1_path)
+            pic_new = pic_new.convert('RGBA')
+            pix = pic_new.load()
+            for x in range(int(1210 * self.bili + self.extra_distance),
+                           int(1450 * self.bili + self.extra_distance)):  # size[0]即图片长度，size[1]即图片高度
+                if 245 <= pix[x, 780][0] <= 255 and 223 <= pix[x, 780][1] <= 233 and 102 <= pix[x, 780][2] <= 112:
+                    return True
+            return False
+
+    def duizhan_battle(self, id='1163746998'):
+        # if self.check_package()==True:
+        #     bili=self.ratio
+        # else:
+        #     bili=1
+        for i in range(300):
+            x = int(1217 * self.bili + self.extra_distance)
+            os.system("adb -s %s shell input tap %s 900" % (id, x))  # 点在线匹配
+            print("Click %s 917 start matching." % x)
+            time.sleep(5)  # 刚开始匹配多等一会
+            self.get_screenshot('pic')
+            str1 = 'battle'
+            count = 0
+            while str1 in self.read_word('up') and count < 28:  # 当可以检测到匹配中时
+                time.sleep(3)  # 每3秒截屏
+                self.get_screenshot('pic')
+                count += 1
+            if count == 28:
+                os.system("adb -s %s shell input tap %s 568" % (id, x))  # 点击取消
+                print('No match anyone in 1.5 min, rematch')
+                time.sleep(1)
+                continue  # 退出当次循环，从新开始匹配
+            os.system("adb -s %s shell input tap %s 532" % (id, x))  # 点击开始
+            print('Find opponent,start fighting!')
+            for i in range(40):
+                time.sleep(10)  # 2分钟对战
+                self.get_screenshot('pic')
+                if self.read_word('taopao') == 'OK' and self.read_word('down') != 'valuebox':  # 逃跑跟钻石箱子蓝色相同。增加一层判断
+                    self.click(int(910 * self.bili + self.extra_distance), 600)
+                    # os.system("adb -s %s shell input tap 766 711"  %id)  #点击 我知道啦
+                    print("The opposite guy has run away!")
+                    self.delay(2)
+                    self.get_screenshot('pic')
+                if self.read_word('level') == 'OK':
+                    print('Battle end')
+                    os.system("adb -s %s shell input tap %s 946" % (id, x))  # 点击升阶确定
+                    print('Click comfirm reward button')
+                    time.sleep(2)
+                    self.get_screenshot('pic')
+                    # if self.read_word('hailuo')==True:
+                    #     os.system("adb -s %s shell input tap %s 762"  %(id, x))  #点击海螺确定界面
+                    #     print ("Click close hailuo screen.")
+                    #     time.sleep(2)
+                    #     self.get_screenshot('pic')
+                    if self.read_word('down') == 'valuebox':  # 可能会有宝箱界面
+                        os.system("adb -s %s shell input tap %s 572" % (id, x))  # 宝箱位置
+                        print('Click valueable box')
+                        time.sleep(3)
+                        print('After win, save screenshot about valuebox.')
+                        self.get_pic(id)
+                        os.system("adb -s %s shell input tap %s 900" % (id, x))  # 确定
+                        print('Click confirm button')
+                        time.sleep(2)
+                        self.get_screenshot('pic')
+                    else:
+                        print("没有找到宝箱弹窗，开始找占卜弹窗")
+                    if self.read_word('zhanbu') == True:
+                        x_right = int(1320 * self.bili + self.extra_distance)
+                        os.system("adb -s %s shell input tap %s 813" % (id, x_right))  # 点击占卜图标
+                        print("点击占卜的按钮.")
+                        time.sleep(3)
+                        os.system("adb -s %s shell input tap %s 900" % (id, x))  # 点击确定图标
+                        print("确认占卜的奖励.")
+                        time.sleep(2)
+                        x_right = int(1530 * self.bili + self.extra_distance)
+                        os.system("adb -s %s shell input tap %s 120" % (id, x_right))  # 点击关闭占卜界面
+                        print("点击关闭占卜的弹窗.")
+                        time.sleep(2)
+                        self.get_screenshot('pic')
+                        if self.read_word('level') == 'OK':
+                            print('Battle end')
+                            os.system("adb -s %s shell input tap %s 946" % (id, x))  # 点击升阶确定
+                            print('点击确认升阶的弹窗')
+                            time.sleep(2)
+                        break
+                    else:
+                        print("没有找到占卜弹窗，开始找海螺弹窗")
+                    break
+                elif self.read_word('hailuo') == True:
+                    os.system("adb -s %s shell input tap %s 762" % (id, x))  # 点击海螺确定界面
+                    print("Click close hailuo screen.")
+                    time.sleep(1)
+                    self.get_screenshot('pic')
+                    if self.read_word('down') == str1:
+                        print('Battle end')
+                        break
+                    elif self.read_word('down') == 'valuebox':
+                        os.system("adb -s %s shell input tap %s 572" % (id, x))  # 宝箱位置
+                        print('Click valueable box')
+                        time.sleep(3)
+                        self.get_pic(id)
+                        print('After lost, save screenshot about valuebox.')
+                        os.system("adb -s %s shell input tap %s 900" % (id, x))  # 确定
+                        print('Click confirm button')
+                        time.sleep(1)
+                        break
+                elif self.read_word('down'):
+                    result = self.read_word('down')
+                    if result == 'battle':
+                        print('Battle end')
+                        break
+                    elif result == 'reward':
+                        os.system("adb -s %s shell input tap %s 906" % (id, x))
+                        print('点击确认奖励')
+                        break
+                elif self.read_word('down') == 'valuebox':
+                    os.system("adb -s %s shell input tap %s 572" % (id, x))  # 宝箱位置
+                    print('Click valueable box')
+                    time.sleep(3)
+                    self.get_pic(id)
+                    print('After lost, save screenshot about valuebox.')
+                    os.system("adb -s %s shell input tap %s 900" % (id, x))  # 确定
+                    print('Click confirm button')
+                    time.sleep(1)
+                    break
+
+    def geti(self):
+        """自动点击精灵个体值"""
+        for i in range(60):
+            self.click(int(1711 * self.bili + self.extra_distance), 910)
+            self.delay(1)
+            self.click(int(938 * self.bili + self.extra_distance), 729)
+            self.delay(1)
+            self.click(int(794 * self.bili + self.extra_distance), 644)
+            print('click %s time' % (i + 1))
+            self.delay(300)
+
+    def start_game(self, account='baidu'):
+        '''利用adb shell dumpsys SurfaceFlinger 或者 adb shell-> dumpsys activity | grep -i run查看当前运行进程'''
+        if account == 'baidu':
+            os.system("adb  -s %s shell am start com.pocketmon.baidu.gh/com.pocketmon.baidu.AppEntry" % self.device_id)
+        elif account == 'xiaomi':
+            os.system("adb -s %s shell am start com.pocketmon.mi/.AppEntry" % self.device_id)
+        elif account == 'guanfang':
+            os.system("adb -s %s shell am start com.Pocketmon.ay/.AppEntry" % self.device_id)
+        self.delay(30)
+        for i in range(10):
+            self.get_screenshot()
+            self.cut_pic((867, 899), (1009, 967))  # 通知信息 确定的图标
+            if self.contrast_black_pic('queding'):
+                self.click(920, 930)  # 通知确定
+                break
+            else:
+                self.back()
+                self.delay(2)
+                self.get_screenshot()
+                self.cut_pic((750, 450), (1140, 500))  # 确定退出提示框
+                if self.contrast_black_pic('quedingtuichu'):
+                    self.click(780, 700)  # 取消退出
+                    self.delay(1)
+            self.delay(5)
+        for i in range(10):
+            self.delay(5)
+            self.get_screenshot()
+            self.cut_pic((794, 771), (893, 815))  # 区服的图标
+            if self.contrast_black_pic('qvfu1') or self.contrast_black_pic('qvfu2'):
+                self.click(940, 950)  # 进入游戏
+                break
+
+    def get_current_time(self):
+        now = datetime.now().strftime("%H")
+        print(now)
+
+    def select_device(self):
+        string = subprocess.Popen('adb devices', shell=True, stdout=subprocess.PIPE)
+        totalstring = string.stdout.read()
+        totalstring = totalstring.decode('utf-8')
+        # print(totalstring)
+        devicelist = re.compile(r'(\w*)\s*device\b').findall(totalstring)
+        devicenum = len(devicelist)
+        if devicenum == 0:
+            print("当前没有设备连接!")
+            return False
+        elif devicenum == 1:
+            print("当前只有一台设备:%s." % devicelist[0])
+            return devicelist[0]
+        else:
+            print("当前存在多台设备，请选择设备:")
+            dictdevice = {}
+            for i in range(devicenum):
+                string = subprocess.Popen("adb -s %s shell getprop ro.product.device" % devicelist[i], shell=True,
+                                          stdout=subprocess.PIPE)
+                modestring = string.stdout.read().strip()  # 去除掉自动生成的回车
+                battery_level = self.get_ballery_level(devicelist[i])
+                print("%s:%s---%s     battery_level: %s" % (i + 1, devicelist[i], modestring, battery_level))
+                dictdevice[i + 1] = devicelist[i]
+            num = input()
+            num = int(num)
+            while not num in dictdevice.keys():
+                print('Pls input the right num again!')
+                num = input()
+                num = int(num)
+            return dictdevice[num]
+
+    def get_ballery_level(self, deviceid=''):
+        battery_info = subprocess.Popen("adb -s %s shell dumpsys battery" % deviceid, shell=True,
+                                        stdout=subprocess.PIPE)
+        battery_info_string = battery_info.stdout.read()
+        battery_info_string = bytes.decode(battery_info_string)
+        location = re.search('level:', battery_info_string)
+        span = location.span()
+        start, end = span
+        start = end + 1
+        for i in range(5):
+            end += 1
+            if battery_info_string[end] == "\n":
+                break
+        battery_level = battery_info_string[start:end]  # 第几个到第几个中间接冒号
+        return battery_level
+
+    def start_play(self):
+        self.device_id = self.select_device()
+        string = subprocess.Popen("adb -s %s shell getprop ro.product.model" % self.device_id, shell=True,
+                                  stdout=subprocess.PIPE)
+        self.device_model = string.stdout.read().strip()  # 去除掉自动生成的回车
+        self.device_model = self.device_model.decode('utf-8')
+        print("Input the num to select function! \n" \
+              "1 auto PVP\n" \
+              "2 auto geti\n")
+        num = input()
+        if num == '1':
+            self.duizhan_battle(self.device_id)
+        elif num == '2':
+            self.geti()
+
+if __name__ == '__main__':
+    test = fuke('')
+    # test.read_word("down")
+    test.start_play()
