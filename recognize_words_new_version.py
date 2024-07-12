@@ -82,7 +82,8 @@ class fuke(contrast_pic):
         # img = img.resize((img.width * 3, img.height * 3))  # 调整大小
         img = img.convert('L')  # 转换为灰度图
         if change_color:
-            img = img.point(lambda x: 0 if x < 128 else 255)  # 二值化
+            # pass
+            img = img.point(lambda x: 0 if x < 180 else 255)  # 二值化
         else:
             img = img.point(lambda x: 0 if x < 251 else 255)  # 二值化
         # img.show() #展示一下处理后的图片
@@ -156,6 +157,10 @@ class fuke(contrast_pic):
                 if 40 <= pix[1150, y][0] <= 60 and 170 <= pix[1150, y][1] <= 190 and 220 <= pix[1150, y][2] <= 240:
                     print('存在缎带确认窗口')
                     return 'duandai'  #精灵获得缎带的确认页面
+            for y in range(950, 965):
+                if 65 <= pix[1150, y][0] <= 90 and 160 <= pix[1150, y][1] <= 180 and 215 <= pix[1150, y][2] <= 240:
+                    print('存在竞技等级确认窗口')
+                    return 'level'  #精灵获得缎带的确认页面
             pic.crop((int(1065 * self.bili + self.extra_distance), 872, int(1336 * self.bili + self.extra_distance),
                       948)).save(cut_pic_path)  # 适用于找到 在线匹配 4个字框的下面的左半边部分
             pic_new = Image.open(cut_pic_path)
@@ -181,16 +186,11 @@ class fuke(contrast_pic):
                     if 14 <= pix[x, y][0] <= 56 and 160 <= pix[x, y][1] <= 174 and 238 <= pix[x, y][2] <= 248:
                         return 'OK'
             return ''
-        elif weizhi == 'taopao':
-            pic.crop((int(870 * self.bili + self.extra_distance), 570, int(1050 * self.bili + self.extra_distance),
-                      630)).save(cut_pic_path)  # 适用于找到 （对方已经逃跑）我知道啦 4个字
-            pic_new = Image.open(cut_pic_path)
-            pic_new = pic_new.convert('RGBA')
-            pix = pic_new.load()
-            for y in range(pic_new.size[1]):  # 二值化处理，这个阈值为R=95，G=95，B=95
-                for x in range(pic_new.size[0]):  # size[0]即图片长度，size[1]即图片高度
-                    if 14 <= pix[x, y][0] <= 56 and 160 <= pix[x, y][1] <= 174 and 238 <= pix[x, y][2] <= 248:
-                        return 'OK'
+        elif weizhi == 'taopao':  # 对方已经退出!
+            self.cut_pic((1025, 430), (1350, 500), '', 'yitaopao')
+            result = self.analyse_pic_word('yitaopao')
+            if "已经退出" in result:
+                return 'yitaopao'
             return ''
         elif weizhi == 'hailuo':  # 保母曼波的海螺结算界面
             pic.crop((int(870 * self.bili + self.extra_distance), 755, int(1045 * self.bili + self.extra_distance),
@@ -222,7 +222,7 @@ class fuke(contrast_pic):
         for i in range(300):
             x = int(1217 * self.bili + self.extra_distance)
             os.system("adb -s %s shell input tap %s 900" % (id, x))  # 点在线匹配
-            print("Click %s 917 start matching." % x)
+            print("点击 %s 917 开始匹配." % x)
             time.sleep(5)  # 刚开始匹配多等一会
             self.get_screenshot('pic')
             str1 = 'battle'
@@ -233,16 +233,16 @@ class fuke(contrast_pic):
                 count += 1
             if count == 28:
                 os.system("adb -s %s shell input tap %s 568" % (id, x))  # 点击取消
-                print('No match anyone in 1.5 min, rematch')
+                print('长时间匹配不到对手，点击取消匹配')
                 time.sleep(1)
                 continue  # 退出当次循环，从新开始匹配
             os.system("adb -s %s shell input tap %s 532" % (id, x))  # 点击开始
-            print('Find opponent,start fighting!')
-            for i in range(40):
-                time.sleep(10)  # 2分钟对战
+            print('匹配到对手，开始决斗!')
+            for i in range(80):
+                time.sleep(5)  # 2分钟对战
                 self.get_screenshot('pic')
-                if self.read_word('taopao') == 'OK' and self.read_word('down') != 'valuebox':  # 逃跑跟钻石箱子蓝色相同。增加一层判断
-                    self.click(int(910 * self.bili + self.extra_distance), 600)
+                if self.read_word('taopao') == 'yitaopao':  # 逃跑跟钻石箱子蓝色相同。增加一层判断
+                    self.click(int(910 * self.bili + self.extra_distance), 615)
                     # os.system("adb -s %s shell input tap 766 711"  %id)  #点击 我知道啦
                     print("对方已逃跑!")
                     self.delay(2)
@@ -253,11 +253,6 @@ class fuke(contrast_pic):
                     print('Click comfirm reward button')
                     time.sleep(2)
                     self.get_screenshot('pic')
-                    # if self.read_word('hailuo')==True:
-                    #     os.system("adb -s %s shell input tap %s 762"  %(id, x))  #点击海螺确定界面
-                    #     print ("Click close hailuo screen.")
-                    #     time.sleep(2)
-                    #     self.get_screenshot('pic')
                     if self.read_word('down') == 'valuebox':  # 可能会有宝箱界面
                         os.system("adb -s %s shell input tap %s 572" % (id, x))  # 宝箱位置
                         print('Click valueable box')
@@ -318,21 +313,29 @@ class fuke(contrast_pic):
                     elif result == 'reward':
                         os.system("adb -s %s shell input tap %s 906" % (id, x))
                         print('点击确认奖励')
+                        time.sleep(1)
                         break
                     elif result == 'duandai':
                         os.system("adb -s %s shell input tap %s 880" % (id, x))
                         print('点击确认缎带奖励')
+                        time.sleep(1)
                         break
-                elif self.read_word('down') == 'valuebox':
-                    os.system("adb -s %s shell input tap %s 572" % (id, x))  # 宝箱位置
-                    print('Click valueable box')
-                    time.sleep(3)
-                    self.get_pic(id)
-                    print('After lost, save screenshot about valuebox.')
-                    os.system("adb -s %s shell input tap %s 900" % (id, x))  # 确定
-                    print('Click confirm button')
-                    time.sleep(1)
-                    break
+                    elif result == 'level':
+                        os.system("adb -s %s shell input tap %s 950" % (id, x))
+                        print('点击确认等级升降')
+                        time.sleep(1)
+                        break
+                    elif result == 'valuebox':
+                        os.system("adb -s %s shell input tap %s 572" % (id, x))  # 宝箱位置
+                        print('Click valueable box')
+                        time.sleep(3)
+                        self.get_pic(id)
+                        print('After lost, save screenshot about valuebox.')
+                        os.system("adb -s %s shell input tap %s 900" % (id, x))  # 确定
+                        print('Click confirm button')
+                        time.sleep(1)
+                        break
+
 
     def geti(self):
         """自动点击精灵个体值"""
@@ -445,5 +448,5 @@ class fuke(contrast_pic):
 
 if __name__ == '__main__':
     test = fuke('')
-    # test.read_word("down")
+    # test.read_word("taopao")
     test.start_play()
