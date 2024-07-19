@@ -190,8 +190,14 @@ class fuke(contrast_pic):
             self.cut_pic((1025, 430), (1350, 500), '', 'yitaopao')
             result = self.analyse_pic_word('yitaopao')
             if "已经退出" in result:
-                return 'yitaopao'
-            return ''
+                return True
+            return False
+        elif weizhi == 'diaoxian':  # 对方已经退出!
+            self.cut_pic((1025, 430), (1350, 500), '', 'yidiaoxian')
+            result = self.analyse_pic_word('yidiaoxian')
+            if "掉线" in result:
+                return True
+            return False
         elif weizhi == 'hailuo':  # 保母曼波的海螺结算界面
             pic.crop((int(870 * self.bili + self.extra_distance), 755, int(1045 * self.bili + self.extra_distance),
                       770)).save(cut_pic_path)
@@ -241,10 +247,18 @@ class fuke(contrast_pic):
             for i in range(80):
                 time.sleep(5)  # 2分钟对战
                 self.get_screenshot('pic')
-                if self.read_word('taopao') == 'yitaopao':  # 逃跑跟钻石箱子蓝色相同。增加一层判断
-                    self.click(int(910 * self.bili + self.extra_distance), 615)
+                if self.read_word('taopao'):  # 逃跑跟钻石箱子蓝色相同。增加一层判断
+                    # self.click(int(910 * self.bili + self.extra_distance), 615)
+                    os.system("adb -s %s shell input tap %s 615" % (id, x))
                     # os.system("adb -s %s shell input tap 766 711"  %id)  #点击 我知道啦
                     print("对方已逃跑!")
+                    self.delay(2)
+                    self.get_screenshot('pic')
+                elif self.read_word('diaoxian'):  # 逃跑跟钻石箱子蓝色相同。增加一层判断
+                    # self.click(int(910 * self.bili + self.extra_distance), 615)
+                    os.system("adb -s %s shell input tap %s 615" % (id, x))
+                    # os.system("adb -s %s shell input tap 766 711"  %id)  #点击 我知道啦
+                    print("确认已掉线!")
                     self.delay(2)
                     self.get_screenshot('pic')
                 if self.read_word('level') == 'OK':
@@ -448,5 +462,5 @@ class fuke(contrast_pic):
 
 if __name__ == '__main__':
     test = fuke('')
-    # test.read_word("taopao")
+    # test.read_word("diaoxian")
     test.start_play()
