@@ -191,11 +191,21 @@ class fuke(contrast_pic):
             result = self.analyse_pic_word('yitaopao')
             if "已经退出" in result:
                 return True
+            elif "逃跑" in result:
+                return True
             return False
-        elif weizhi == 'diaoxian':  # 对方已经退出!
+        elif weizhi == 'diaoxian':  # 已经掉线!
             self.cut_pic((1025, 430), (1350, 500), '', 'yidiaoxian')
             result = self.analyse_pic_word('yidiaoxian')
             if "掉线" in result:
+                return True
+            if "已断开" in result:
+                return True
+            return False
+        elif weizhi == 'caozuopinfan':  # 操作频繁的提醒!
+            self.cut_pic((808, 410), (1600, 530), '', 'caozuopinfan')
+            result = self.analyse_pic_word('caozuopinfan')
+            if "慢点" in result:
                 return True
             return False
         elif weizhi == 'hailuo':  # 保母曼波的海螺结算界面
@@ -259,6 +269,11 @@ class fuke(contrast_pic):
                     os.system("adb -s %s shell input tap %s 615" % (id, x))
                     # os.system("adb -s %s shell input tap 766 711"  %id)  #点击 我知道啦
                     print("确认已掉线!")
+                    self.delay(2)
+                    self.get_screenshot('pic')
+                if self.read_word('caozuopinfan'):
+                    os.system("adb -s %s shell input tap %s 640" % (id, x))
+                    print("确认操作频繁!")
                     self.delay(2)
                     self.get_screenshot('pic')
                 if self.read_word('level') == 'OK':
@@ -462,5 +477,5 @@ class fuke(contrast_pic):
 
 if __name__ == '__main__':
     test = fuke('')
-    # test.read_word("diaoxian")
+    # test.read_word("caozuopinfan")
     test.start_play()
