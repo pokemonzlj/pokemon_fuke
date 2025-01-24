@@ -2,17 +2,17 @@
 import os
 import sys
 from PIL import Image
-import pytesseract
 import time
 import threading
 import _thread
 from datetime import datetime
-from PIL import ImageGrab
+from PIL import ImageGrab, Image
 from pic_contrast_script import contrast_pic
 import math
 import subprocess
 import re
 from paddleocr import PaddleOCR
+import numpy as np
 """
 更新日志
 V1.0
@@ -24,8 +24,9 @@ V1.1~1.5
 V1.6
 兼容PVP第一次获胜的占卜弹窗
 
-V2.0（预告）
-引入百度PaddleOCR图像识别库，替换掉pytesseract，大幅提升文字识别准确度
+V2.0
+1.引入百度PaddleOCR图像识别库，替换掉pytesseract，大幅提升文字识别准确度
+2.pvp增加快速刷胜场模式，只跟人机对手进行对战
 """
 
 class myThread(threading.Thread):  # 继承父类threading.Thread
@@ -49,6 +50,7 @@ class fuke(contrast_pic):
         self.bili = 1
         self.extra_distance = 0
         self.zhanli_repeat = 0
+        self.ocr = PaddleOCR()
 
     def get_pic(self, id='1163746998'):
         path = os.path.dirname(__file__) + '/pic'
@@ -81,63 +83,35 @@ class fuke(contrast_pic):
             cut_pic_path = path_target + '/' + name + '.png'
         pic.crop((left_up[0], left_up[1], right_down[0], right_down[1])).save(cut_pic_path)
 
-    def analyse_pic_word(self, picname='', type=1, change_color=True):
-        """识别图像中的文字，type为1识别文字，为2识别时间倒计时"""
+    def analyse_pic_word(self, picname='', change_color=0):
+        """识别图像中的文字, change_color=1或2为不同的二值化模式，其他不做处理"""
         path = os.path.dirname(__file__) + '/pic'
         if picname == '':
             pic = path + '/cut.png'
         else:
             pic = path + '/' + picname + '.png'
         img = Image.open(pic)
-        # img = img.resize((img.width * 3, img.height * 3))  # 调整大小
         img = img.convert('L')  # 转换为灰度图
-        if change_color:
-            # pass
-            img = img.point(lambda x: 0 if x < 180 else 255)  # 二值化
-        else:
+        if change_color == 1:
+            img = img.point(lambda x: 0 if x < 128 else 255)  # 二值化
+        elif change_color == 2:
             img = img.point(lambda x: 0 if x < 251 else 255)  # 二值化
-        # img.show() #展示一下处理后的图片
-        if os.path.exists('E:/Tesseract-OCR/tesseract.exe'):
-            pytesseract.pytesseract.tesseract_cmd = 'E:/Tesseract-OCR/tesseract.exe'
-        else:
-            pytesseract.pytesseract.tesseract_cmd = 'D:/Tesseract-OCR/tesseract.exe'
-        if type != 2:
-            text = pytesseract.image_to_string(img, lang='chi_sim')
-        # text = pytesseract.image_to_string(img, lang='eng+chi_sim')
-        else:
-            # img = img.resize((img.width * 2, img.height * 2))  # 调整大小
-            # new_size = (img.width * 2, img.height * 2)
-            # img = img.resize(new_size, Image.LANCZOS)
-            # 降噪处理
-            img = img.filter(ImageFilter.MedianFilter(size=3))  # MedianFilter 将每个像素的值替换为其周围像素值的中值，以减少图像中的噪声。
-            # 在这里，size=3 表示滤波器的尺寸为 3x3，即在每个像素周围取一个 3x3 的区域进行中值计算。
-            # img.show()
-            text = pytesseract.image_to_string(img, lang='eng')
-        if type == 2:
-            # print(text)
-            # text = ''.join([char for char in text if char.isnumeric() or char == ':'])  #针对时间去噪
-            text = ''.join([char for char in text if char.isnumeric()])  # 针对时间去噪
-        reformatted_text = text.replace(' ', '').replace('\n', '')
-        # print(reformatted_text)
-        return reformatted_text
+        # img.save(pic)
+        img_np = np.array(img)  # 将 Image 对象转换为 numpy 数组
+        result = self.ocr.ocr(img_np)
+        if result == [None]:
+            return ''
+        return self.extract_ocr_content(result)
 
-    def check_package(self, id='1163746998'):
-        r = os.popen("adb -s %s shell dumpsys window | findstr mCurrentFocus" % id,
-                     "r")  # 想获取控制台输出的内容，那就用os.popen的方法了，popen返回的是一个file对象，跟open打开文件一样操作了，r是以读的方式打开
-        # dumpsys activity top|grep ACTIVITY
-        string = r.read()  # 返回file对象后再去read
-        if "com.pocketmon.baidu" in string:
-            print("It's baidu game, the resolution is 1768*1080")
-            self.bili = self.ratio
-            return True
-        elif "com.pock.maichi" in string:
-            print("It's maichi game, the resolution is 2400*1080")
-            self.bili = self.ratio
-            return True
-        else:
-            print("It's not baidu game, the resolution is 1920*1080")
-            self.bili = 1
-            return False
+    def extract_ocr_content(self, content=[]):
+        """对OCR识别到的内容进行取值和拼接，变成完整的一段内容"""
+        ocr_result = content
+        extracted_content = []
+        for item in ocr_result[0]:  # item 的结构为 [位置信息, (识别内容, 置信度)]
+            extracted_content.append(item[1][0])
+        contains = ''.join(context for context in extracted_content if context)
+        # print(contain)
+        return contains
 
     def read_word(self, weizhi='up'):
         path = os.path.dirname(__file__) + '/pic'
@@ -146,17 +120,21 @@ class fuke(contrast_pic):
         cut_pic_path = path + '/cut.png'
         if weizhi == 'up':
             self.cut_pic((1068, 437), (1370, 510), '', 'pipeizhong')
-            result = self.analyse_pic_word('pipeizhong', 1, False)
+            result = self.analyse_pic_word('pipeizhong', 0)
             if "匹配" in result:
                 return 'battle'
             return ''
+        elif weizhi == "competitor_name":  #对手的名字
+            self.cut_pic((1266, 815), (1590, 875), '', 'competitor_name')
+            result = self.analyse_pic_word('competitor_name')
+            print("对手：{}".format(result))
+            return result
         elif weizhi == 'down':
             self.cut_pic((1090, 870), (1320, 970), '', 'zaixianpipei')
-            result = self.analyse_pic_word('zaixianpipei', 1, False)
+            result = self.analyse_pic_word('zaixianpipei', 0)
             if "线匹" in result:
                 return 'battle'
             pic = Image.open(pic1_path)
-            # pic_new = Image.open(cut_pic_path)
             pic_new = pic.convert('RGBA')
             pix = pic_new.load()
             for y in range(910, 920):
@@ -231,21 +209,15 @@ class fuke(contrast_pic):
                         return True
             return False
         elif weizhi == 'zhanbu':  # 每日首胜的占卜界面
-            pic_new = Image.open(pic1_path)
-            pic_new = pic_new.convert('RGBA')
-            pix = pic_new.load()
-            for x in range(int(1210 * self.bili + self.extra_distance),
-                           int(1450 * self.bili + self.extra_distance)):  # size[0]即图片长度，size[1]即图片高度
-                if 245 <= pix[x, 780][0] <= 255 and 223 <= pix[x, 780][1] <= 233 and 102 <= pix[x, 780][2] <= 112:
-                    return True
+            self.cut_pic((1467, 777), (1670, 846), '', 'zhanbu')
+            result = self.analyse_pic_word('zhanbu')
+            if "占卜" in result:
+                return True
             return False
 
-    def duizhan_battle(self, id='1163746998'):
-        # if self.check_package()==True:
-        #     bili=self.ratio
-        # else:
-        #     bili=1
-        for i in range(300):
+    def duizhan_battle(self, id='1163746998', only_robot=False, quick_battle=False):
+        """only_robot参数为Ture会只与人机对战，quick_battle参数为Ture会主动释放技能"""
+        for i in range(200):
             x = int(1217 * self.bili + self.extra_distance)
             os.system("adb -s %s shell input tap %s 900" % (id, x))  # 点在线匹配
             print("点击 %s 917 开始匹配." % x)
@@ -262,6 +234,11 @@ class fuke(contrast_pic):
                 print('长时间匹配不到对手，点击取消匹配')
                 time.sleep(1)
                 continue  # 退出当次循环，从新开始匹配
+            if only_robot:
+                if "的" not in self.read_word('competitor_name'):
+                    print('非人机对手，直接跳过战斗')
+                    time.sleep(20)
+                    continue
             os.system("adb -s %s shell input tap %s 532" % (id, x))  # 点击开始
             print('匹配到对手，开始决斗!')
             for i in range(80):
@@ -304,15 +281,15 @@ class fuke(contrast_pic):
                         self.get_screenshot('pic')
                     else:
                         print("没有找到宝箱弹窗，开始找占卜弹窗")
-                    if self.read_word('zhanbu') == True:
-                        x_right = int(1320 * self.bili + self.extra_distance)
+                    if self.read_word('zhanbu'):
+                        x_right = int(1570 * self.bili + self.extra_distance)
                         os.system("adb -s %s shell input tap %s 813" % (id, x_right))  # 点击占卜图标
                         print("点击占卜的按钮.")
                         time.sleep(3)
                         os.system("adb -s %s shell input tap %s 900" % (id, x))  # 点击确定图标
                         print("确认占卜的奖励.")
                         time.sleep(2)
-                        x_right = int(1530 * self.bili + self.extra_distance)
+                        x_right = int(1910 * self.bili + self.extra_distance)
                         os.system("adb -s %s shell input tap %s 120" % (id, x_right))  # 点击关闭占卜界面
                         print("点击关闭占卜的弹窗.")
                         time.sleep(2)
@@ -452,7 +429,7 @@ class fuke(contrast_pic):
             num = input()
             num = int(num)
             while not num in dictdevice.keys():
-                print('Pls input the right num again!')
+                print('请输入正确的数字!')
                 num = input()
                 num = int(num)
             return dictdevice[num]
@@ -480,15 +457,18 @@ class fuke(contrast_pic):
         self.device_model = string.stdout.read().strip()  # 去除掉自动生成的回车
         self.device_model = self.device_model.decode('utf-8')
         print("Input the num to select function! \n" \
-              "1 auto PVP\n" \
-              "2 auto geti\n")
+              "1 自动 PVP\n" \
+              "2 自动 点个体值\n"
+              "3 自动 PVP(只打人机)\n")
         num = input()
         if num == '1':
             self.duizhan_battle(self.device_id)
         elif num == '2':
             self.geti()
+        elif num == '3':
+            self.duizhan_battle(self.device_id, True)
 
 if __name__ == '__main__':
     test = fuke('')
-    # test.read_word("caozuopinfan")
+    # test.read_word("zhanbu")
     test.start_play()
