@@ -13,6 +13,7 @@ import subprocess
 import re
 from paddleocr import PaddleOCR
 import numpy as np
+import logging
 """
 更新日志
 V1.0
@@ -51,6 +52,8 @@ class fuke(contrast_pic):
         self.extra_distance = 0
         self.zhanli_repeat = 0
         self.ocr = PaddleOCR()
+        logging.disable(logging.DEBUG)
+        logging.disable(logging.WARNING)
 
     def get_pic(self, id='1163746998'):
         path = os.path.dirname(__file__) + '/pic'
@@ -218,7 +221,7 @@ class fuke(contrast_pic):
     def duizhan_battle(self, id='1163746998', only_robot=False, quick_battle=False):
         """only_robot参数为Ture会只与人机对战，quick_battle参数为Ture会主动释放技能"""
         for i in range(200):
-            x = int(1217 * self.bili + self.extra_distance)
+            x = int(1200 * self.bili + self.extra_distance)
             os.system("adb -s %s shell input tap %s 900" % (id, x))  # 点在线匹配
             print("点击 %s 917 开始匹配." % x)
             time.sleep(5)  # 刚开始匹配多等一会
@@ -234,13 +237,12 @@ class fuke(contrast_pic):
                 print('长时间匹配不到对手，点击取消匹配')
                 time.sleep(1)
                 continue  # 退出当次循环，从新开始匹配
-            if only_robot:
-                if "的" not in self.read_word('competitor_name'):
-                    print('非人机对手，直接跳过战斗')
-                    time.sleep(20)
-                    continue
-            os.system("adb -s %s shell input tap %s 532" % (id, x))  # 点击开始
-            print('匹配到对手，开始决斗!')
+            if only_robot and "的" not in self.read_word('competitor_name'):
+                print('非人机对手，直接不点击开始，跳过战斗')
+                time.sleep(20)
+            else:
+                os.system("adb -s %s shell input tap %s 532" % (id, x))  # 点击开始
+                print('匹配到对手，开始决斗!')
             for i in range(80):
                 time.sleep(5)  # 2分钟对战
                 self.get_screenshot('pic')
