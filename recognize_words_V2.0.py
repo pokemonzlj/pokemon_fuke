@@ -23,7 +23,8 @@ V1.1~1.5
 跟着游戏内容更新，适配界面更新
 
 V1.6
-兼容PVP第一次获胜的占卜弹窗
+1.兼容PVP第一次获胜的占卜弹窗
+2.支持模拟器挂机，例如mumu：MuMuManager adb -v 0 connect通过cmd命令连接mumu模拟器
 
 V2.0
 1.引入百度PaddleOCR图像识别库，替换掉pytesseract，大幅提升文字识别准确度
@@ -152,20 +153,26 @@ class fuke(contrast_pic):
                 if 30 <= pix[1150, y][0] <= 90 and 160 <= pix[1150, y][1] <= 180 and 215 <= pix[1150, y][2] <= 240:
                     print('存在竞技等级确认窗口')
                     return 'level'  #竞技等级升级确认页面
-            pic.crop((int(1065 * self.bili + self.extra_distance), 872, int(1336 * self.bili + self.extra_distance),
-                      948)).save(cut_pic_path)  # 适用于找到 在线匹配 4个字框的下面的左半边部分
-            pic_new = Image.open(cut_pic_path)
-            pic_new = pic_new.convert('RGBA')
-            pix = pic_new.load()
-            # pic_new=pic_new.convert('1')  #convert方法可以将图片转成黑白
-            for y in range(pic_new.size[1]):  # 二值化处理，这个阈值为R=95，G=95，B=95
-                for x in range(pic_new.size[0]):  # size[0]即图片长度，size[1]即图片高度
-                    # if 250 <= pix[x, y][0] <= 255 and 195 <= pix[x, y][1] <= 202 and pix[x, y][2] <= 18:  # 接近纯土黄色
-                    # if 235 <= pix[x, y][0] <= 255 and 95 <= pix[x, y][1] <= 115 and pix[x, y][2] <= 20:  # 接近纯土黄色
-                    #     return 'battle'
-                    if 22 <= pix[x, y][0] <= 30 and 16 <= pix[x, y][1] <= 24 and pix[x, y][2] <= 5:  # 有宝箱界面遮挡
-                        return 'valuebox'
+            # pic.crop((int(1065 * self.bili + self.extra_distance), 872, int(1336 * self.bili + self.extra_distance),
+            #           948)).save(cut_pic_path)  # 适用于找到 在线匹配 4个字框的下面的左半边部分
+            # pic_new = Image.open(cut_pic_path)
+            # pic_new = pic_new.convert('RGBA')
+            # pix = pic_new.load()
+            # # pic_new=pic_new.convert('1')  #convert方法可以将图片转成黑白
+            # for y in range(pic_new.size[1]):  # 二值化处理，这个阈值为R=95，G=95，B=95
+            #     for x in range(pic_new.size[0]):  # size[0]即图片长度，size[1]即图片高度
+            #         # if 250 <= pix[x, y][0] <= 255 and 195 <= pix[x, y][1] <= 202 and pix[x, y][2] <= 18:  # 接近纯土黄色
+            #         # if 235 <= pix[x, y][0] <= 255 and 95 <= pix[x, y][1] <= 115 and pix[x, y][2] <= 20:  # 接近纯土黄色
+            #         #     return 'battle'
+            #         if 22 <= pix[x, y][0] <= 30 and 16 <= pix[x, y][1] <= 24 and pix[x, y][2] <= 5:  # 有宝箱界面遮挡
+            #             return 'valuebox'
             return ''
+        elif weizhi == 'valuebox':  # 玩偶宝箱
+            self.cut_pic((920, 250), (1500, 340), '', 'valuebox')
+            result = self.analyse_pic_word('valuebox')
+            if "获得一个" in result:
+                return True
+            return False
         elif weizhi == 'level':
             pic.crop((int(890 * self.bili + self.extra_distance), 905, int(1020 * self.bili + self.extra_distance),
                       980)).save(cut_pic_path)  # 适用于找到 确定 2个字
@@ -271,11 +278,11 @@ class fuke(contrast_pic):
                     print('Click comfirm reward button')
                     time.sleep(2)
                     self.get_screenshot('pic')
-                    if self.read_word('down') == 'valuebox':  # 可能会有宝箱界面
+                    if self.read_word('valuebox'):  # 可能会有宝箱界面
                         os.system("adb -s %s shell input tap %s 572" % (id, x))  # 宝箱位置
-                        print('Click valueable box')
+                        print('点击打开玩偶宝箱')
                         time.sleep(3)
-                        print('After win, save screenshot about valuebox.')
+                        print('保存玩偶宝箱获取的截图.')
                         self.get_pic(id)
                         os.system("adb -s %s shell input tap %s 900" % (id, x))  # 确定
                         print('Click confirm button')
@@ -305,7 +312,7 @@ class fuke(contrast_pic):
                     else:
                         print("没有找到占卜弹窗，开始找海螺弹窗")
                     break
-                elif self.read_word('hailuo') == True:
+                elif self.read_word('hailuo'):
                     os.system("adb -s %s shell input tap %s 762" % (id, x))  # 点击海螺确定界面
                     print("Click close hailuo screen.")
                     time.sleep(1)
@@ -313,12 +320,12 @@ class fuke(contrast_pic):
                     if self.read_word('down') == str1:
                         print('Battle end')
                         break
-                    elif self.read_word('down') == 'valuebox':
+                    elif self.read_word('valuebox'):
                         os.system("adb -s %s shell input tap %s 572" % (id, x))  # 宝箱位置
-                        print('Click valueable box')
+                        print('点击打开玩偶宝箱')
                         time.sleep(3)
                         self.get_pic(id)
-                        print('After lost, save screenshot about valuebox.')
+                        print('保存玩偶宝箱获取的截图.')
                         os.system("adb -s %s shell input tap %s 900" % (id, x))  # 确定
                         print('Click confirm button')
                         time.sleep(1)
@@ -343,16 +350,16 @@ class fuke(contrast_pic):
                         print('点击确认等级升降')
                         time.sleep(1)
                         break
-                    elif result == 'valuebox':
-                        os.system("adb -s %s shell input tap %s 572" % (id, x))  # 宝箱位置
-                        print('Click valueable box')
-                        time.sleep(3)
-                        self.get_pic(id)
-                        print('After lost, save screenshot about valuebox.')
-                        os.system("adb -s %s shell input tap %s 900" % (id, x))  # 确定
-                        print('Click confirm button')
-                        time.sleep(1)
-                        break
+                elif self.read_word('valuebox'):
+                    os.system("adb -s %s shell input tap %s 572" % (id, x))  # 宝箱位置
+                    print('点击打开玩偶宝箱')
+                    time.sleep(3)
+                    self.get_pic(id)
+                    print('保存玩偶宝箱获取的截图.')
+                    os.system("adb -s %s shell input tap %s 900" % (id, x))  # 确定
+                    print('Click confirm button')
+                    time.sleep(1)
+                    break
 
 
     def geti(self):
@@ -403,7 +410,7 @@ class fuke(contrast_pic):
         print(now)
 
     def select_device(self):
-        """MuMuManager adb -v 0 connect通过命令连接mumu模拟器"""
+        """选择设备"""
         string = subprocess.Popen('adb devices', shell=True, stdout=subprocess.PIPE)
         totalstring = string.stdout.read()
         totalstring = totalstring.decode('utf-8')
