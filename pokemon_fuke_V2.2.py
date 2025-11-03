@@ -35,7 +35,7 @@ V2.1
 2.调整第一次获胜后占卜界面的判定
 
 V2.2
-1.优化自动点个体值功能，能做到把一个精灵所有个体值都点满
+1.优化自动点个体值功能，能做到把一个60级以上精灵所有个体值都点满
 """
 
 class myThread(threading.Thread):  # 继承父类threading.Thread
@@ -138,8 +138,11 @@ class fuke(contrast_pic):
         elif weizhi == "competitor_name":  #对手的名字
             self.cut_pic((1266, 815), (1590, 875), '', 'competitor_name')
             result = self.analyse_pic_word('competitor_name')
-            print("对手：{}".format(result))
-            return result
+            if result:
+                print("对手：{}".format(result))
+                return result
+            print("未识别到对手信息")
+            return ''
         elif weizhi == 'down':
             self.cut_pic((1090, 870), (1320, 970), '', 'zaixianpipei')
             result = self.analyse_pic_word('zaixianpipei', 0)
@@ -361,6 +364,7 @@ class fuke(contrast_pic):
             img = Image.open(pic_path)
             img_rgba = img.convert('RGBA')
             pix = img_rgba.load()
+            is_clicked = False
             for y in range(330, 870):
                 if pix[2022, y][0] <= 100 and 180 <= pix[2022, y][1] <= 200 and 240 <= pix[2022, y][2] <= 255:
                     print(f"找到y对应坐标{y}")
@@ -371,9 +375,12 @@ class fuke(contrast_pic):
                     self.delay(1)
                     self.click(1020, 640)
                     self.delay(300)
-                    continue
-            self.swipe(self.device_id, 2200, 750, 2200, 350)
-            print("向下拉动个体值条")
+                    is_clicked = True
+                    break
+            if not is_clicked:
+                self.swipe(self.device_id, 2022, 750, 2022, 350)
+                print("向下拉动个体值条")
+                self.delay(2)
 
     def start_game(self, account='baidu'):
         '''利用adb shell dumpsys SurfaceFlinger 或者 adb shell-> dumpsys activity | grep -i run查看当前运行进程'''
@@ -481,5 +488,4 @@ class fuke(contrast_pic):
 
 if __name__ == '__main__':
     test = fuke('')
-    # test.get_pic()
     test.start_play()
