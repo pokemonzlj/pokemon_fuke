@@ -1,10 +1,13 @@
-# 主要产出
+# 主要功能
+## 自动PVP
 刷满pvp活动的胜场，顺便刷完胜利随机出的玩偶宝箱  
 ![image](https://github.com/user-attachments/assets/83b96858-c128-4210-a056-00c00db7ed2c)  
+## 自动点个体值
+等级大于60+的未mega进化的精灵，会自动5分钟点一次加一点个体值，直到把所有的个体都点满  
 # 项目说明
 用于自动挂机玩口袋妖怪复刻，实现自动打pvp、自动快速刷人机胜场、自动升级个体值等
 # 如何使用
 1.相应的环境用pip都可以安装  
-2.在python3下执行recognize_words.py既可  
+2.执行pokemon_fuke.py既可  
 
 
