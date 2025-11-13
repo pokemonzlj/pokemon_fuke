@@ -234,6 +234,12 @@ class fuke(contrast_pic):
             if "占卜" in result:
                 return True
             return False
+        elif weizhi == 'geti_confirm':
+            self.cut_pic((1150, 710), (1250, 775), '', 'geti_confirm')
+            result = self.analyse_pic_word('geti_confirm')
+            if "确定" in result:
+                return True
+            return False
 
     def duizhan_battle(self, id='1163746998', only_robot=False, quick_battle=False):
         """only_robot参数为Ture会只与人机对战，quick_battle参数为Ture会主动释放技能"""
@@ -306,7 +312,7 @@ class fuke(contrast_pic):
                             os.system("adb -s %s shell input tap %s 572" % (id, x))  # 宝箱位置
                             print('点击打开玩偶宝箱')
                             time.sleep(3)
-                            self.get_pic(id)
+                            self.get_pic()
                             print('保存玩偶宝箱获取的截图.')
                             os.system("adb -s %s shell input tap %s 900" % (id, x))  # 确定
                             print('点击确认')
@@ -324,7 +330,7 @@ class fuke(contrast_pic):
                         os.system("adb -s %s shell input tap %s 572" % (id, x))  # 宝箱位置
                         print('点击打开玩偶宝箱')
                         time.sleep(3)
-                        self.get_pic(id)
+                        self.get_pic()
                         print('保存玩偶宝箱获取的截图.')
                         os.system("adb -s %s shell input tap %s 900" % (id, x))  # 确定
                         print('Click confirm button')
@@ -334,7 +340,7 @@ class fuke(contrast_pic):
                     os.system("adb -s %s shell input tap %s 572" % (id, x))  # 宝箱位置
                     print('点击打开玩偶宝箱')
                     time.sleep(3)
-                    self.get_pic(id)
+                    self.get_pic()
                     print('保存玩偶宝箱获取的截图.')
                     os.system("adb -s %s shell input tap %s 900" % (id, x))  # 确定
                     print('Click confirm button')
@@ -357,6 +363,7 @@ class fuke(contrast_pic):
 
     def add_geti(self):
         """自动点击精灵个体值"""
+        swipe_times = 0
         for i in range(360):
             self.get_screenshot('pic')
             path = os.path.dirname(__file__) + '/pic'
@@ -365,21 +372,29 @@ class fuke(contrast_pic):
             img_rgba = img.convert('RGBA')
             pix = img_rgba.load()
             is_clicked = False
+            can_find_geti = False
             for y in range(330, 870):
                 if pix[2022, y][0] <= 100 and 180 <= pix[2022, y][1] <= 200 and 240 <= pix[2022, y][2] <= 255:
+                    can_find_geti = True
                     print(f"找到y对应坐标{y}")
                     self.click(2022, y)
                     print("点击增加个体值")
                     self.delay(1)
-                    self.click(1200, 745)
-                    self.delay(1)
-                    self.click(1020, 640)
-                    self.delay(300)
-                    is_clicked = True
+                    self.get_screenshot('pic')
+                    if self.read_word("geti_confirm"):
+                        self.click(1200, 745)
+                        print("点击确定加1点个体值")
+                        self.delay(1)
+                        self.click(1020, 640)
+                        print("点击二次确定加个体值")
+                        print("等待5分钟个体值恢复")
+                        self.delay(300)
+                        is_clicked = True
                     break
-            if not is_clicked:
+            if not can_find_geti and swipe_times<=2:
                 self.swipe(self.device_id, 2022, 750, 2022, 350)
-                print("向下拉动个体值条")
+                print("上划个体值条")
+                swipe_times +=1
                 self.delay(2)
 
     def start_game(self, account='baidu'):
