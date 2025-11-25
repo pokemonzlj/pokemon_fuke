@@ -240,6 +240,12 @@ class fuke(contrast_pic):
             if "确定" in result:
                 return True
             return False
+        elif weizhi == 'use_geti_item':
+            self.cut_pic((1100, 660), (1290, 720), '', 'use_geti_item')
+            result = self.analyse_pic_word('use_geti_item')
+            if "道具" in result:
+                return True
+            return False
 
     def duizhan_battle(self, id='1163746998', only_robot=False, quick_battle=False):
         """only_robot参数为Ture会只与人机对战，quick_battle参数为Ture会主动释放技能"""
@@ -390,6 +396,25 @@ class fuke(contrast_pic):
                         print("等待5分钟个体值恢复")
                         self.delay(300)
                         is_clicked = True
+                    elif self.read_word("use_geti_item"):
+                        self.click(1466,694)
+                        print("点击取消使用个体值道具")
+                        self.delay(10)
+                    else:
+                        self.delay(5)
+                        self.click(2022, y)
+                        print("点击增加个体值")
+                        self.delay(2)
+                        self.get_screenshot('pic')
+                        if self.read_word("geti_confirm"):
+                            self.click(1200, 745)
+                            print("点击确定加1点个体值")
+                            self.delay(1)
+                            self.click(1020, 640)
+                            print("点击二次确定加个体值")
+                            print("等待5分钟个体值恢复")
+                            self.delay(300)
+                            is_clicked = True
                     break
             if not can_find_geti and swipe_times<=2:
                 self.swipe(self.device_id, 2022, 750, 2022, 350)
