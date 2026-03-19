@@ -3,7 +3,7 @@
 刷满pvp活动的胜场，顺便刷完胜利随机出的玩偶宝箱  
 ![image](https://github.com/user-attachments/assets/83b96858-c128-4210-a056-00c00db7ed2c)  
 打赛季的时候每天打满胜场，可以快速刷到30级满级领奖励  
-<img width="751" height="409" alt="image" src="https://github.com/user-attachments/assets/babc55f0-ea99-4abb-9224-654b46fef290" />
+<img width="765" height="426" alt="image" src="https://github.com/user-attachments/assets/8db76e84-5fe7-4795-8a0a-281a5dfbfb46" />
 
 ## 自动点个体值
 等级大于60+的未mega进化的精灵，会自动5分钟点一次加一点个体值，直到把所有的个体都点满  
