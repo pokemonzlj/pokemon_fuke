@@ -5,6 +5,7 @@ import os
 import sys
 import math
 import operator
+from functools import reduce
 from PIL import Image
 import time
 import subprocess
@@ -14,6 +15,12 @@ from PIL import ImageGrab
 class contrast_pic:
     def __init__(self, device):
         self.device_id=device
+
+    def _compare_histogram(self, pic1, pic2):
+        """比较两张图片的直方图差异"""
+        hist1 = pic1.histogram()
+        hist2 = pic2.histogram()
+        return math.sqrt(reduce(operator.add, list(map(lambda a,b: (a-b)**2, hist1, hist2)))/len(hist1))
 
     def get_screenshot(self,path='pic'):
         if path=='pic':
@@ -38,8 +45,7 @@ class contrast_pic:
             pic.crop((left_up[0],left_up[1],right_down[0],right_down[1])).save(cut_pic_path)
         else:
             path_target=os.path.dirname(__file__)+'/target_pic'
-            path=path_target
-            pic=Image.open(path)
+            pic=Image.open(path_target)
             if name=='':
                 cut_pic_path=os.path.dirname(__file__)+'/pic/cut_target.png'
             else:
@@ -54,7 +60,8 @@ class contrast_pic:
             pic1_path=path+'/cut.png'
         pic=Image.open(pic1_path)
         if color==False:
-            pic=pic.convert('1').save(pic1_path)
+            pic=pic.convert('1')
+            pic.save(pic1_path)
 
     def contrast_two_pic(self,name1='',name2='',albumname='pic'):  #第一张图片在pic路径下，第二张可以设参数在另一个文件夹下
         path_original= os.path.dirname(__file__)+'/pic/'+name1+'.png'
@@ -66,15 +73,10 @@ class contrast_pic:
         pic_original=pic_original.convert('1')
         pic_contrast=Image.open(path_contrast)
         pic_contrast=pic_contrast.convert('1')
-        pic_histogram=pic_original.histogram()
-        pic_target_histogram=pic_contrast.histogram()
-        differ = math.sqrt(reduce(operator.add, list(map(lambda a,b: (a-b)**2,pic_histogram, pic_target_histogram)))/len(pic_histogram))
-        # print differ
+        differ = self._compare_histogram(pic_original, pic_contrast)
         if differ<1.5:  #最底下一列颜色偏白有差异，差不多偏差是3.18，所以改成3.2,大针蜂跟直冲熊偏差是1.502
-            # print "pic match!"
             return True
         else:
-            # print "Pic not match!"
             return False
 
     def contrast_grey_pic(self,target_pic='1'):
@@ -123,19 +125,16 @@ class contrast_pic:
         pic=pic.convert('1')
         pic_target=Image.open(path_target_cut)
         pic_target=pic_target.convert('1')
-        pic_histogram=pic.histogram()
-        pic_target_histogram=pic_target.histogram()
-        differ = math.sqrt(reduce(operator.add, list(map(lambda a,b: (a-b)**2,pic_histogram, pic_target_histogram)))/len(pic_histogram))
-        #print differ
+        differ = self._compare_histogram(pic, pic_target)
         if differ<20:
-            print "pic match, pass!"
+            print("pic match, pass!")
             return True
         else:
-            print "Current pic is diferent from target pic!"
-            time=datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-            os.rename(pic1_path,path+'/cut_%s.png' %time)
-            os.rename(path_target_cut,path+'/cut_target_%s.png'%time)
-            print "The time is %s" %time
+            print("Current pic is diferent from target pic!")
+            timestamp=datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+            os.rename(pic1_path,path+'/cut_%s.png' %timestamp)
+            os.rename(path_target_cut,path+'/cut_target_%s.png'%timestamp)
+            print("The time is %s" %timestamp)
             return False
 
     def click(self,x=0,y=0,issubprocess=False):
@@ -148,13 +147,13 @@ class contrast_pic:
         os.system("adb -s %s shell input text %s" %(self.device_id,word))
 
     def swipe(self,direction='up'):
-        direction=direction.lower()
+        direction=direction.lower().strip()
         if direction=='up':
             os.system("adb -s %s shell input swipe 700 1300 700 500 2000" %self.device_id)
         elif direction=='down':
             os.system("adb -s %s shell input swipe 700 500 700 1300 2000" %self.device_id)
         elif direction=='left':
-            os.system("adb -s %s shell input swipe 580 620 880 620 2000" %self.device_id)
+            os.system("adb -s %s shell input swipe 880 620 580 620 2000" %self.device_id)
         elif direction=='right':
             os.system("adb -s %s shell input swipe 580 620 880 620 2000" %self.device_id)
         elif direction=='button':
@@ -162,14 +161,16 @@ class contrast_pic:
         elif direction=='top':
             os.system("adb -s %s shell input swipe 700 500 700 1300 100" %self.device_id)
         else:
-            print "Wrong direction"
+            print("Wrong direction")
 
     def open_notification_bar(self):
         os.system("adb -s %s shell input swipe 500 0 500 700 500" %self.device_id)
         time.sleep(1)
 
     def open_quick_settings_bar(self):
-        self.open_notification_bar()
+        # 下滑两次以打开快捷设置栏
+        os.system("adb -s %s shell input swipe 500 0 500 700 500" %self.device_id)
+        time.sleep(0.5)
         os.system("adb -s %s shell input swipe 500 0 500 700 500" %self.device_id)
         time.sleep(1)
 
