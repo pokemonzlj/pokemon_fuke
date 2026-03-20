@@ -7,7 +7,7 @@ import threading
 import _thread
 from datetime import datetime
 from PIL import ImageGrab, Image
-from pic_contrast_script import contrast_pic
+from adb_operations import ADBDevice
 import math
 import subprocess
 import re
@@ -47,10 +47,10 @@ V3.0
 1.优化代码逻辑
 """
 
-class fuke(contrast_pic):
+class fuke(ADBDevice):
     """电脑模拟器挂机，设置手机分辨率为1080*2400"""
     def __init__(self, device):
-        contrast_pic.__init__(self, device)
+        ADBDevice.__init__(self, device)
         self.device_id = device
         self.bili = 1
         self.extra_distance = 0
@@ -58,37 +58,6 @@ class fuke(contrast_pic):
         self.ocr = PaddleOCR()
         logging.disable(logging.DEBUG)
         logging.disable(logging.WARNING)
-
-    def get_pic(self):
-        path = os.path.dirname(__file__) + '/pic'
-        timepic = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-        subprocess.Popen(
-            'adb  -s %s shell screencap -p /sdcard/DCIM/screenshot.png' % (self.device_id)).wait()  # 掉出宝箱之后截图以便查看
-        subprocess.Popen('adb  -s %s pull /sdcard/DCIM/screenshot.png %s/%s.png ' % (self.device_id, path, timepic),
-                         stdout=subprocess.PIPE).wait()
-        print("Get reward screenshot")
-        subprocess.Popen('adb  -s %s shell rm /sdcard/DCIM/screenshot.png' % self.device_id).wait()
-
-    def cut_pic(self, left_up=(0, 63), right_down=(1080, 1620), target='', name='', resolution=(1080, 2400)):
-        '''裁剪截图，获取需要的小图片方便识别'''
-        if target == '' or target == False:
-            path = os.path.dirname(__file__) + '/pic'
-            pic1_path = path + '/screenshot.png'
-            pic = Image.open(pic1_path)
-            if name == '':
-                cut_pic_path = path + '/cut.png'
-            else:
-                cut_pic_path = path + '/' + name + '.png'
-            pic.crop((left_up[0], left_up[1], right_down[0], right_down[1])).save(cut_pic_path)
-            return True
-        path_target = os.path.dirname(__file__) + '/pic/' +target
-        pic1_path = path_target + '/screenshot.png'
-        pic = Image.open(pic1_path)
-        if name == '':
-            cut_pic_path = path_target + '/cut.png'
-        else:
-            cut_pic_path = path_target + '/' + name + '.png'
-        pic.crop((left_up[0], left_up[1], right_down[0], right_down[1])).save(cut_pic_path)
 
     def analyse_pic_word(self, picname='', change_color=0):
         """识别图像中的文字, change_color=1或2为不同的二值化模式，其他不做处理"""
@@ -398,9 +367,19 @@ class fuke(contrast_pic):
                 continue
 
             competitor = self.read_word('competitor_name')
-            if only_robot and "的" not in competitor and "大世界" not in competitor:
-                print('非人机对手，直接不点击开始，跳过战斗')
-                time.sleep(20)
+            if only_robot:
+                if "大世界" in competitor:
+                    # 包含大世界，非人机，跳过
+                    print('非人机对手，直接不点击开始，跳过战斗')
+                    time.sleep(20)
+                elif "的" in competitor:
+                    # 包含的，人机，开始战斗
+                    self.click(x, 532)
+                    print('匹配到对手，开始决斗!')
+                else:
+                    # 其他情况，非人机，跳过
+                    print('非人机对手，直接不点击开始，跳过战斗')
+                    time.sleep(20)
             else:
                 self.click(x, 532)  # 点击开始
                 print('匹配到对手，开始决斗!')
