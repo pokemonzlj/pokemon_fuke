@@ -7,6 +7,8 @@
 
 ## 自动点个体值
 等级大于60+的未mega进化的精灵，会自动5分钟点一次加一点个体值，直到把所有的个体都点满  
+<img width="756" height="415" alt="image" src="https://github.com/user-attachments/assets/66e37ada-b0cf-47e4-8a41-f1e777c5b92c" />
+注意，当个体到达50点，会选择使用加个体的糖豆道具  
 <img width="796" height="376" alt="image" src="https://github.com/user-attachments/assets/6e729986-78d6-4554-9130-a1216590f4a5" />
 # 项目说明
 用于自动挂机玩口袋妖怪复刻，实现自动打pvp、自动快速刷人机胜场、自动升级个体值等
