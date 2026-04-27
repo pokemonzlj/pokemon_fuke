@@ -48,6 +48,7 @@ V3.0
 
 V3.1
 1.兼容最新版本更新后个体值按钮颜色变化
+2.支持动态设置个体值点到多少后，再使用个体糖豆
 """
 
 class fuke(ADBDevice):
@@ -420,7 +421,7 @@ class fuke(ADBDevice):
         """划动屏幕"""
         os.system("adb -s {} shell input swipe {} {} {} {} {}".format(device_id, left_up_x, left_up_y, right_down_x, right_down_y, steps))
 
-    def add_geti(self):
+    def add_geti(self, target_level=50):
         """自动点击精灵个体值"""
         swipe_times = 0
         for i in range(360):
@@ -437,19 +438,19 @@ class fuke(ADBDevice):
                     can_find_geti = True
                     print(f"找到y对应坐标{y}")
                     
-                    # 检查是否等级50（个体值已满）
-                    is_level_50 = self.check_level_50(y)
+                    # 检查是否到达目标等级（个体值已满）
+                    is_target_reached = self.check_level_reached(y, target_level)
                     
-                    # 如果已满级，直接点击后使用道具，跳过加1点流程
-                    if is_level_50:
-                        print("该个体值到达等级50，直接使用道具")
+                    # 如果已达到目标等级，直接点击后使用道具，跳过加1点流程
+                    if is_target_reached:
+                        print(f"该个体值到达目标等级{target_level}，直接使用道具")
                         self.click(2022, y)
                         print("点击增加个体值")
                         self.delay(1)
                         self.use_geti_item()
                         is_clicked = True
                     else:
-                        # 未满级，走正常加1点流程
+                        # 未达到目标等级，走正常加1点流程
                         self.click(2022, y)
                         print("点击增加个体值")
                         self.delay(1)
@@ -489,13 +490,14 @@ class fuke(ADBDevice):
                 swipe_times +=1
                 self.delay(2)
 
-    def check_level_50(self, y):
-        """检查指定y坐标位置是否显示等级50"""
-        self.cut_pic((1830, y-15), (1960, y+25), '', 'level_50_check')
-        result = self.analyse_pic_word('level_50_check', 0)
+    def check_level_reached(self, y, target_level=50):
+        """检查指定y坐标位置是否显示目标等级"""
+        self.cut_pic((1830, y-15), (1960, y+25), '', 'level_target_check')
+        result = self.analyse_pic_word('level_target_check', 0)
         print(f"检测到等级文字: {result}")
-        if "50" in result or "等级50" in result:
-            print(f"确认该行个体值已到等级50")
+        target_str = str(target_level)
+        if target_str in result or f"等级{target_str}" in result:
+            print(f"确认该行个体值已到目标等级{target_level}")
             return True
         return False
 
@@ -646,7 +648,7 @@ class fuke(ADBDevice):
         if num == '1':
             self.duizhan_battle(self.device_id, False, True)
         elif num == '2':
-            self.add_geti()
+            self.add_geti(55)
         elif num == '3':
             self.duizhan_battle(self.device_id, True, True)
 
