@@ -10,6 +10,9 @@
 <img width="756" height="415" alt="image" src="https://github.com/user-attachments/assets/66e37ada-b0cf-47e4-8a41-f1e777c5b92c" />
 注意，当个体到达50点，会选择使用加个体的糖豆道具  
 <img width="796" height="376" alt="image" src="https://github.com/user-attachments/assets/6e729986-78d6-4554-9130-a1216590f4a5" />
+未满60级的精灵可以选择不使用个体道具的模式  
+<img width="602" height="637" alt="image" src="https://github.com/user-attachments/assets/86b900b8-6278-4b1e-945f-be0b9586d0eb" />
+
 # 项目说明
 用于自动挂机玩口袋妖怪复刻，实现自动打pvp、自动快速刷人机胜场、自动升级个体值等
 # 如何使用
